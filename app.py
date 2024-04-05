@@ -141,7 +141,9 @@ def main():
 
                 # Hand sign classification
                 hand_sign_id = keypoint_classifier(pre_processed_landmark_list)
-                if hand_sign_id == 2:  # Point gesture
+                if hand_sign_id == 0:  # Stop
+                    point_history.append(landmark_list[5])
+                elif hand_sign_id == 1:
                     point_history.append(landmark_list[8])
                 else:
                     point_history.append([0, 0])
