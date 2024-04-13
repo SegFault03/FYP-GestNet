@@ -22,6 +22,9 @@ last_click_time = 0.0
 last_double_click_time = 0.0
 last_right_click_time = 0.0
 last_drag_time = 0.0
+last_pause_time = 0.0
+last_vup_time = 0.0
+last_vdown_time = 0.0
 
 def get_args():
     parser = argparse.ArgumentParser()
@@ -203,7 +206,7 @@ def main():
 
 
 def control_mouse(hands, frame, hand_sign_id):
-    global last_click_time, last_double_click_time
+    global last_click_time, last_double_click_time, last_pause_time, last_vup_time, last_vdown_time
     offset = 100
     smoothening = 4
     frame_height, frame_width, _ = frame.shape
@@ -225,6 +228,10 @@ def control_mouse(hands, frame, hand_sign_id):
                     # if abs(index_x-curr_x) > 4 and abs(index_y - curr_y) > 4:
                     #     pyautogui.moveTo(index_x, index_y, duration=0.1)
                 
+                if hand_sign_id == 0 and time.time() - last_pause_time > 1.0:
+                    last_pause_time = time.time()
+                    pyautogui.typewrite(['space'], 0.2)
+
                 if hand_sign_id == 2 and time.time() - last_click_time > 1.0:
                     last_click_time = time.time()
                     pyautogui.click()
@@ -232,6 +239,14 @@ def control_mouse(hands, frame, hand_sign_id):
                 if hand_sign_id == 3 and time.time() - last_double_click_time > 1.0:
                     last_double_click_time = time.time()
                     pyautogui.click(clicks=2)
+
+                if hand_sign_id == 5 and time.time() - last_vup_time > 1.0:
+                    last_vup_time = time.time()
+                    pyautogui.hotkey('ctrl', 'up')
+
+                if hand_sign_id == 6 and time.time() - last_vdown_time > 1.0:
+                    last_vdown_time = time.time()
+                    pyautogui.hotkey('ctrl', 'down')
                     
 
             #     if id == 4:  # thumb finger
