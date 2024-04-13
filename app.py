@@ -10,11 +10,18 @@ from collections import deque
 import cv2 as cv
 import numpy as np
 import mediapipe as mp
+import pyautogui
+import time
 
 from utils import CvFpsCalc
 from model import KeyPointClassifier
 from model import PointHistoryClassifier
 
+# Global vars
+last_click_time = 0.0
+last_double_click_time = 0.0
+last_right_click_time = 0.0
+last_drag_time = 0.0
 
 def get_args():
     parser = argparse.ArgumentParser()
@@ -54,8 +61,10 @@ def main():
 
     # Camera preparation ###############################################################
     cap = cv.VideoCapture(cap_device)
-    cap.set(cv.CAP_PROP_FRAME_WIDTH, cap_width)
-    cap.set(cv.CAP_PROP_FRAME_HEIGHT, cap_height)
+    # cap.set(cv.CAP_PROP_FRAME_WIDTH, cap_width)
+    # cap.set(cv.CAP_PROP_FRAME_HEIGHT, cap_height)
+    cap.set(cv.CAP_PROP_FRAME_WIDTH, 1080)
+    cap.set(cv.CAP_PROP_FRAME_HEIGHT, 720)
 
     # Model load #############################################################
     mp_hands = mp.solutions.hands
@@ -114,12 +123,17 @@ def main():
         image = cv.flip(image, 1)  # Mirror display
         debug_image = copy.deepcopy(image)
 
+
         # Detection implementation #############################################################
         image = cv.cvtColor(image, cv.COLOR_BGR2RGB)
 
         image.flags.writeable = False
         results = hands.process(image)
         image.flags.writeable = True
+
+        # ##### Testing #######
+        # hands_var = results.multi_hand_landmarks
+        # control_mouse(hands_var, image)
 
         #  ####################################################################
         if results.multi_hand_landmarks is not None:
@@ -135,6 +149,7 @@ def main():
                     landmark_list)
                 pre_processed_point_history_list = pre_process_point_history(
                     debug_image, point_history)
+                
                 # Write to the dataset file
                 logging_csv(number, mode, pre_processed_landmark_list,
                             pre_processed_point_history_list)
@@ -147,6 +162,10 @@ def main():
                     point_history.append(landmark_list[8])
                 else:
                     point_history.append([0, 0])
+
+                ##### Testing #######
+                hands_var = results.multi_hand_landmarks
+                control_mouse(hands_var, image, hand_sign_id)
 
                 # Finger gesture classification
                 finger_gesture_id = 0
@@ -181,6 +200,58 @@ def main():
 
     cap.release()
     cv.destroyAllWindows()
+
+
+def control_mouse(hands, frame, hand_sign_id):
+    global last_click_time, last_double_click_time
+    offset = 100
+    smoothening = 4
+    frame_height, frame_width, _ = frame.shape
+    screen_width, screen_height = pyautogui.size()
+    pyautogui.PAUSE = 0
+    if hands:
+        for hand in hands:
+            landmarks = hand.landmark
+            for id, landmark in enumerate(landmarks):
+                x = int(landmark.x*frame_width)
+                y = int(landmark.y*frame_height)
+                if id == 8 and hand_sign_id == 1:  # index finger
+                    index_x = (screen_width/frame_width*x)
+                    index_y = (screen_height/frame_height*y)
+                    curr_x, curr_y = pyautogui.position()
+                    x = curr_x + (index_x - curr_x)/smoothening
+                    y = curr_y + (index_y - curr_y) / smoothening
+                    pyautogui.moveTo(x, y)
+                    # if abs(index_x-curr_x) > 4 and abs(index_y - curr_y) > 4:
+                    #     pyautogui.moveTo(index_x, index_y, duration=0.1)
+                
+                if hand_sign_id == 2 and time.time() - last_click_time > 1.0:
+                    last_click_time = time.time()
+                    pyautogui.click()
+
+                if hand_sign_id == 3 and time.time() - last_double_click_time > 1.0:
+                    last_double_click_time = time.time()
+                    pyautogui.click(clicks=2)
+                    
+
+            #     if id == 4:  # thumb finger
+            #         # cv2.circle(img=frame, center=(x, y), radius=10, color=(0, 255, 255))
+            #         thumb_x = screen_width/frame_width*x
+            #         thumb_y = screen_height/frame_height*y
+            #         # print('outside', abs(index_y - thumb_y))
+            #     if id == 12:  # middle finger
+            #         middle_x = screen_width/frame_width*x
+            #         middle_y = screen_height/frame_height*y
+            # if abs(index_y - thumb_y) < 50 and abs(middle_y - thumb_y) < 50:
+            #     pyautogui.moveTo(index_x, index_y)
+            # elif abs(index_y - thumb_y) < 50:
+            #     pyautogui.click()
+            #     pyautogui.sleep(1)
+            # elif abs(middle_y - thumb_y) < 50:
+            #     pyautogui.rightClick()
+            #     pyautogui.sleep(1)
+            # elif abs(index_y - thumb_y) > 100:
+            #     pyautogui.moveTo(index_x, index_y)
 
 
 def select_mode(key, mode):
