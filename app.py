@@ -230,7 +230,7 @@ def control_mouse(hands, frame, hand_sign_id):
                 
                 if hand_sign_id == 0 and time.time() - last_pause_time > 1.0:
                     last_pause_time = time.time()
-                    pyautogui.typewrite(['space'], 0.2)
+                    pyautogui.typewrite(['space'], 0.5)
 
                 if hand_sign_id == 2 and time.time() - last_click_time > 1.0:
                     last_click_time = time.time()
