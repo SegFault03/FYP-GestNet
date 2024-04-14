@@ -49,7 +49,7 @@ def get_args():
 
 
 def main():
-    # Argument parsing #################################################################
+    # Argument parsing 
     args = get_args()
 
     cap_device = args.device
@@ -62,14 +62,14 @@ def main():
 
     use_brect = True
 
-    # Camera preparation ###############################################################
+    # Camera preparation 
     cap = cv.VideoCapture(cap_device)
     # cap.set(cv.CAP_PROP_FRAME_WIDTH, cap_width)
     # cap.set(cv.CAP_PROP_FRAME_HEIGHT, cap_height)
     cap.set(cv.CAP_PROP_FRAME_WIDTH, 1080)
     cap.set(cv.CAP_PROP_FRAME_HEIGHT, 720)
 
-    # Model load #############################################################
+    # Model load 
     mp_hands = mp.solutions.hands
     hands = mp_hands.Hands(
         static_image_mode=use_static_image_mode,
@@ -82,7 +82,7 @@ def main():
 
     point_history_classifier = PointHistoryClassifier()
 
-    # Read labels ###########################################################
+    # Read labels 
     with open('model/keypoint_classifier/keypoint_classifier_label.csv',
               encoding='utf-8-sig') as f:
         keypoint_classifier_labels = csv.reader(f)
@@ -97,29 +97,28 @@ def main():
             row[0] for row in point_history_classifier_labels
         ]
 
-    # FPS Measurement ########################################################
+    # FPS Measurement 
     cvFpsCalc = CvFpsCalc(buffer_len=10)
 
-    # Coordinate history #################################################################
+    # Coordinate history 
     history_length = 16
     point_history = deque(maxlen=history_length)
 
-    # Finger gesture history ################################################
+    # Finger gesture history 
     finger_gesture_history = deque(maxlen=history_length)
 
-    #  ########################################################################
     mode = 0
 
     while True:
         fps = cvFpsCalc.get()
 
-        # Process Key (ESC: end) #################################################
+        # Process Key (ESC: end) 
         key = cv.waitKey(10)
         if key == 27:  # ESC
             break
         number, mode = select_mode(key, mode)
 
-        # Camera capture #####################################################
+        # Camera capture 
         ret, image = cap.read()
         if not ret:
             break
@@ -127,18 +126,14 @@ def main():
         debug_image = copy.deepcopy(image)
 
 
-        # Detection implementation #############################################################
+        # Detection implementation 
         image = cv.cvtColor(image, cv.COLOR_BGR2RGB)
 
         image.flags.writeable = False
         results = hands.process(image)
         image.flags.writeable = True
 
-        # ##### Testing #######
-        # hands_var = results.multi_hand_landmarks
-        # control_mouse(hands_var, image)
-
-        #  ####################################################################
+        
         if results.multi_hand_landmarks is not None:
             for hand_landmarks, handedness in zip(results.multi_hand_landmarks,
                                                   results.multi_handedness):
@@ -166,9 +161,9 @@ def main():
                 else:
                     point_history.append([0, 0])
 
-                ##### Testing #######
+                # Mouse Control
                 hands_var = results.multi_hand_landmarks
-                control_mouse(hands_var, image, hand_sign_id)
+                control_mouse(hands_var, image, hand_sign_id, mode)
 
                 # Finger gesture classification
                 finger_gesture_id = 0
@@ -198,16 +193,17 @@ def main():
         debug_image = draw_point_history(debug_image, point_history)
         debug_image = draw_info(debug_image, fps, mode, number)
 
-        # Screen reflection #############################################################
+        # Screen reflection 
         cv.imshow('Hand Gesture Recognition', debug_image)
 
     cap.release()
     cv.destroyAllWindows()
 
 
-def control_mouse(hands, frame, hand_sign_id):
+def control_mouse(hands, frame, hand_sign_id, mode):
     global last_click_time, last_double_click_time, last_pause_time, last_vup_time, last_vdown_time
-    offset = 100
+    if mode == 3:
+        return
     smoothening = 4
     frame_height, frame_width, _ = frame.shape
     screen_width, screen_height = pyautogui.size()
@@ -225,8 +221,7 @@ def control_mouse(hands, frame, hand_sign_id):
                     x = curr_x + (index_x - curr_x)/smoothening
                     y = curr_y + (index_y - curr_y) / smoothening
                     pyautogui.moveTo(x, y)
-                    # if abs(index_x-curr_x) > 4 and abs(index_y - curr_y) > 4:
-                    #     pyautogui.moveTo(index_x, index_y, duration=0.1)
+
                 
                 if hand_sign_id == 0 and time.time() - last_pause_time > 1.0:
                     last_pause_time = time.time()
@@ -249,25 +244,6 @@ def control_mouse(hands, frame, hand_sign_id):
                     pyautogui.hotkey('ctrl', 'down')
                     
 
-            #     if id == 4:  # thumb finger
-            #         # cv2.circle(img=frame, center=(x, y), radius=10, color=(0, 255, 255))
-            #         thumb_x = screen_width/frame_width*x
-            #         thumb_y = screen_height/frame_height*y
-            #         # print('outside', abs(index_y - thumb_y))
-            #     if id == 12:  # middle finger
-            #         middle_x = screen_width/frame_width*x
-            #         middle_y = screen_height/frame_height*y
-            # if abs(index_y - thumb_y) < 50 and abs(middle_y - thumb_y) < 50:
-            #     pyautogui.moveTo(index_x, index_y)
-            # elif abs(index_y - thumb_y) < 50:
-            #     pyautogui.click()
-            #     pyautogui.sleep(1)
-            # elif abs(middle_y - thumb_y) < 50:
-            #     pyautogui.rightClick()
-            #     pyautogui.sleep(1)
-            # elif abs(index_y - thumb_y) > 100:
-            #     pyautogui.moveTo(index_x, index_y)
-
 
 def select_mode(key, mode):
     number = -1
@@ -279,6 +255,8 @@ def select_mode(key, mode):
         mode = 1
     if key == 104:  # h
         mode = 2
+    if key == 109:  # m
+        mode = 3
     return number, mode
 
 
@@ -482,87 +460,87 @@ def draw_landmarks(image, landmark_point):
 
     # Key Points
     for index, landmark in enumerate(landmark_point):
-        if index == 0:  # 手首1
+        if index == 0:  
             cv.circle(image, (landmark[0], landmark[1]), 5, (255, 255, 255),
                       -1)
             cv.circle(image, (landmark[0], landmark[1]), 5, (0, 0, 0), 1)
-        if index == 1:  # 手首2
+        if index == 1:  
             cv.circle(image, (landmark[0], landmark[1]), 5, (255, 255, 255),
                       -1)
             cv.circle(image, (landmark[0], landmark[1]), 5, (0, 0, 0), 1)
-        if index == 2:  # 親指：付け根
+        if index == 2: 
             cv.circle(image, (landmark[0], landmark[1]), 5, (255, 255, 255),
                       -1)
             cv.circle(image, (landmark[0], landmark[1]), 5, (0, 0, 0), 1)
-        if index == 3:  # 親指：第1関節
+        if index == 3: 
             cv.circle(image, (landmark[0], landmark[1]), 5, (255, 255, 255),
                       -1)
             cv.circle(image, (landmark[0], landmark[1]), 5, (0, 0, 0), 1)
-        if index == 4:  # 親指：指先
+        if index == 4:  
             cv.circle(image, (landmark[0], landmark[1]), 8, (255, 255, 255),
                       -1)
             cv.circle(image, (landmark[0], landmark[1]), 8, (0, 0, 0), 1)
-        if index == 5:  # 人差指：付け根
+        if index == 5:  
             cv.circle(image, (landmark[0], landmark[1]), 5, (255, 255, 255),
                       -1)
             cv.circle(image, (landmark[0], landmark[1]), 5, (0, 0, 0), 1)
-        if index == 6:  # 人差指：第2関節
+        if index == 6:  
             cv.circle(image, (landmark[0], landmark[1]), 5, (255, 255, 255),
                       -1)
             cv.circle(image, (landmark[0], landmark[1]), 5, (0, 0, 0), 1)
-        if index == 7:  # 人差指：第1関節
+        if index == 7:  
             cv.circle(image, (landmark[0], landmark[1]), 5, (255, 255, 255),
                       -1)
             cv.circle(image, (landmark[0], landmark[1]), 5, (0, 0, 0), 1)
-        if index == 8:  # 人差指：指先
+        if index == 8:  
             cv.circle(image, (landmark[0], landmark[1]), 8, (255, 255, 255),
                       -1)
             cv.circle(image, (landmark[0], landmark[1]), 8, (0, 0, 0), 1)
-        if index == 9:  # 中指：付け根
+        if index == 9:  
             cv.circle(image, (landmark[0], landmark[1]), 5, (255, 255, 255),
                       -1)
             cv.circle(image, (landmark[0], landmark[1]), 5, (0, 0, 0), 1)
-        if index == 10:  # 中指：第2関節
+        if index == 10:  
             cv.circle(image, (landmark[0], landmark[1]), 5, (255, 255, 255),
                       -1)
             cv.circle(image, (landmark[0], landmark[1]), 5, (0, 0, 0), 1)
-        if index == 11:  # 中指：第1関節
+        if index == 11:  
             cv.circle(image, (landmark[0], landmark[1]), 5, (255, 255, 255),
                       -1)
             cv.circle(image, (landmark[0], landmark[1]), 5, (0, 0, 0), 1)
-        if index == 12:  # 中指：指先
+        if index == 12:  
             cv.circle(image, (landmark[0], landmark[1]), 8, (255, 255, 255),
                       -1)
             cv.circle(image, (landmark[0], landmark[1]), 8, (0, 0, 0), 1)
-        if index == 13:  # 薬指：付け根
+        if index == 13:  
             cv.circle(image, (landmark[0], landmark[1]), 5, (255, 255, 255),
                       -1)
             cv.circle(image, (landmark[0], landmark[1]), 5, (0, 0, 0), 1)
-        if index == 14:  # 薬指：第2関節
+        if index == 14:  
             cv.circle(image, (landmark[0], landmark[1]), 5, (255, 255, 255),
                       -1)
             cv.circle(image, (landmark[0], landmark[1]), 5, (0, 0, 0), 1)
-        if index == 15:  # 薬指：第1関節
+        if index == 15:  
             cv.circle(image, (landmark[0], landmark[1]), 5, (255, 255, 255),
                       -1)
             cv.circle(image, (landmark[0], landmark[1]), 5, (0, 0, 0), 1)
-        if index == 16:  # 薬指：指先
+        if index == 16:  
             cv.circle(image, (landmark[0], landmark[1]), 8, (255, 255, 255),
                       -1)
             cv.circle(image, (landmark[0], landmark[1]), 8, (0, 0, 0), 1)
-        if index == 17:  # 小指：付け根
+        if index == 17:  
             cv.circle(image, (landmark[0], landmark[1]), 5, (255, 255, 255),
                       -1)
             cv.circle(image, (landmark[0], landmark[1]), 5, (0, 0, 0), 1)
-        if index == 18:  # 小指：第2関節
+        if index == 18:  
             cv.circle(image, (landmark[0], landmark[1]), 5, (255, 255, 255),
                       -1)
             cv.circle(image, (landmark[0], landmark[1]), 5, (0, 0, 0), 1)
-        if index == 19:  # 小指：第1関節
+        if index == 19:  
             cv.circle(image, (landmark[0], landmark[1]), 5, (255, 255, 255),
                       -1)
             cv.circle(image, (landmark[0], landmark[1]), 5, (0, 0, 0), 1)
-        if index == 20:  # 小指：指先
+        if index == 20:  
             cv.circle(image, (landmark[0], landmark[1]), 8, (255, 255, 255),
                       -1)
             cv.circle(image, (landmark[0], landmark[1]), 8, (0, 0, 0), 1)
@@ -615,8 +593,8 @@ def draw_info(image, fps, mode, number):
     cv.putText(image, "FPS:" + str(fps), (10, 30), cv.FONT_HERSHEY_SIMPLEX,
                1.0, (255, 255, 255), 2, cv.LINE_AA)
 
-    mode_string = ['Logging Key Point', 'Logging Point History']
-    if 1 <= mode <= 2:
+    mode_string = ['Logging Key Point', 'Logging Point History', 'Inactive Mode']
+    if 1 <= mode <= 4:
         cv.putText(image, "MODE:" + mode_string[mode - 1], (10, 90),
                    cv.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 1,
                    cv.LINE_AA)
